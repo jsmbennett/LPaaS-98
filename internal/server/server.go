@@ -211,20 +211,21 @@ func (s *Server) handleGamePage(w http.ResponseWriter, r *http.Request) {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; background-color: #000; color: #fff; overflow: hidden; }
-    #game-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; }
-    #game-canvas { flex: 1; background-color: #000; }
+    #game-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; position: relative; }
+    canvas { display: block; width: 100%; flex: 1; background-color: #000; }
     #hud { background-color: #222; padding: 10px; font-size: 12px; font-family: monospace; border-top: 1px solid #555; }
     .hud-row { display: flex; justify-content: space-between; margin: 2px 0; }
     .hud-label { color: #aaa; }
     .hud-value { color: #0f0; }
-    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background-color: rgba(0,0,0,0.8); padding: 30px; border-radius: 5px; }
+    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background-color: rgba(0,0,0,0.8); padding: 30px; border-radius: 5px; z-index: 100; }
     .spinner { border: 4px solid #444; border-top: 4px solid #0f0; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    #debug-info { position: absolute; top: 10px; left: 10px; color: #0f0; font-family: monospace; font-size: 11px; z-index: 50; max-width: 300px; }
   </style>
 </head>
 <body>
   <div id="game-container">
-    <div id="game-canvas"></div>
+    <canvas id="game-canvas"></canvas>
     <div id="hud">
       <div class="hud-row"><span class="hud-label">Room:</span><span class="hud-value" id="hud-room">` + roomID + `</span></div>
       <div class="hud-row"><span class="hud-label">Status:</span><span class="hud-value" id="hud-status">Connecting...</span></div>
@@ -234,17 +235,44 @@ func (s *Server) handleGamePage(w http.ResponseWriter, r *http.Request) {
     <div class="spinner"></div>
     <p>Initializing game...</p>
   </div>
-  <script src="/loader.js?room=` + roomID + `&game=` + gameID + `"></script>
+  <div id="debug-info"></div>
   <script type="module">
+    const debug = document.getElementById('debug-info');
+    function log(msg) {
+      console.log(msg);
+      debug.innerHTML += msg + '<br>';
+    }
+
     (async () => {
       try {
-        const ioquake3Factory = (await import('/game/` + gameID + `/` + game.Game.JSLoader + `')).default;
-        console.log('Game factory imported, initializing...');
+        const canvas = document.getElementById('game-canvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight - 50;
+        log('Canvas: ' + canvas.width + 'x' + canvas.height);
 
+        const gl = canvas.getContext('webgl') || canvas.getContext('webgl2');
+        log('WebGL: ' + (gl ? 'OK' : 'Not supported'));
+
+        log('Connecting to relay...');
+        const loader = new GameLoader('` + gameID + `', '` + roomID + `');
+        window.gameLoader = loader;
+
+        try {
+          await loader.init();
+          log('Relay connected');
+        } catch(e) {
+          log('Relay init error: ' + e.message);
+          // Continue anyway - game can run without relay for testing
+        }
+
+        log('Loading game module...');
+        const ioquake3Factory = (await import('/game/` + gameID + `/` + game.Game.JSLoader + `')).default;
+        log('Factory loaded');
+
+        log('Initializing engine...');
         const gameModule = await ioquake3Factory({
-          canvas: document.getElementById('game-canvas'),
+          canvas: canvas,
           locateFile: (file) => {
-            // Map WASM binary name to what we have
             if (file.endsWith('.wasm')) {
               return '/game/` + gameID + `/` + game.Game.WASM + `';
             }
@@ -252,15 +280,31 @@ func (s *Server) handleGamePage(w http.ResponseWriter, r *http.Request) {
           }
         });
 
-        console.log('Game module initialized:', gameModule);
+        log('Engine ready!');
         window.gameModule = gameModule;
+
+        // Start a render loop
+        let frameCount = 0;
+        function renderFrame() {
+          frameCount++;
+          if (frameCount % 60 === 0) {
+            log('Frames: ' + frameCount);
+          }
+          requestAnimationFrame(renderFrame);
+        }
+        renderFrame();
+        log('Render loop started');
+
+        document.getElementById('loading').style.display = 'none';
       } catch (err) {
         console.error('Failed to initialize game:', err);
-        document.getElementById('loading').style.display = 'none';
+        log('ERROR: ' + err.message);
+        document.getElementById('loading').innerHTML = '<p>Error: ' + err.message + '</p>';
         document.getElementById('hud-status').textContent = 'Failed to load';
       }
     })();
   </script>
+  <script src="/loader.js?room=` + roomID + `&game=` + gameID + `"></script>
 </body>
 </html>`))
 }
