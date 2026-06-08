@@ -243,6 +243,89 @@ func (s *Server) handleGamePage(w http.ResponseWriter, r *http.Request) {
       debug.innerHTML += msg + '<br>';
     }
 
+    // Define GameLoader inline (don't load it separately)
+    class GameLoader {
+      constructor(gameId, roomId) {
+        this.gameId = gameId;
+        this.roomId = roomId;
+        this.ws = null;
+        this.peerId = null;
+        this.isHost = false;
+        this.peers = new Map();
+      }
+
+      async init() {
+        return new Promise((resolve, reject) => {
+          const wsUrl = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' +
+            window.location.host + '/ws/room/' + this.roomId + '?nickname=' +
+            encodeURIComponent(localStorage.nickname || 'Player');
+
+          this.ws = new WebSocket(wsUrl);
+
+          this.ws.onopen = () => {
+            console.log('Connected to relay');
+            resolve();
+          };
+
+          this.ws.onmessage = (event) => {
+            if (typeof event.data === 'string') {
+              this.handleControl(JSON.parse(event.data));
+            } else {
+              this.handleGamePacket(new Uint8Array(event.data));
+            }
+          };
+
+          this.ws.onerror = (err) => {
+            console.error('WebSocket error:', err);
+            reject(err);
+          };
+
+          this.ws.onclose = () => {
+            console.log('Disconnected from relay');
+          };
+        });
+      }
+
+      handleControl(msg) {
+        switch (msg.type) {
+          case 'hello':
+            this.peerId = msg.peer_id;
+            this.isHost = msg.is_host;
+            log('Joined as peer ' + this.peerId + ' (host: ' + this.isHost + ')');
+            this.sendReady();
+            break;
+          case 'peer_joined':
+            console.log('Peer ' + msg.peer_id + ' joined: ' + msg.nickname);
+            this.peers.set(msg.peer_id, msg);
+            break;
+          case 'peer_left':
+            console.log('Peer ' + msg.peer_id + ' left');
+            this.peers.delete(msg.peer_id);
+            break;
+        }
+      }
+
+      handleGamePacket(data) {
+        console.log('Game packet: ' + data.length + ' bytes');
+      }
+
+      sendGamePacket(data) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          if (this.isHost) {
+            this.ws.send(new Uint8Array([0xFF, ...data]));
+          } else {
+            this.ws.send(new Uint8Array([0x00, ...data]));
+          }
+        }
+      }
+
+      sendReady() {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify({ type: 'ready' }));
+        }
+      }
+    }
+
     (async () => {
       try {
         const canvas = document.getElementById('game-canvas');
@@ -261,8 +344,7 @@ func (s *Server) handleGamePage(w http.ResponseWriter, r *http.Request) {
           await loader.init();
           log('Relay connected');
         } catch(e) {
-          log('Relay init error: ' + e.message);
-          // Continue anyway - game can run without relay for testing
+          log('Relay error: ' + e.message);
         }
 
         log('Loading game module...');
