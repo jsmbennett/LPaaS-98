@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/joeyb/lpaas-98/internal/lobby"
 	"github.com/joeyb/lpaas-98/internal/registry"
@@ -39,6 +41,7 @@ func New(addr string, reg *registry.Registry, gamesDir string) *Server {
 	s.mux.HandleFunc("POST /api/rooms/{roomID}/join", s.handleJoinRoom)
 	s.mux.HandleFunc("GET /game.html", s.handleGamePage)
 	s.mux.HandleFunc("GET /loader.js", s.handleLoaderJS)
+	s.mux.HandleFunc("GET /game/{gameID}/{file}", s.handleGameFile)
 	s.mux.Handle("GET /ws/room/{roomID}", websocket.Handler(s.relay.ServeRoom))
 
 	return s
@@ -180,10 +183,7 @@ func (s *Server) handleGamePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.lobby.RWMutex.RLock()
 	room := s.lobby.GetRoom(roomID)
-	s.lobby.RWMutex.RUnlock()
-
 	if room == nil {
 		http.Error(w, "Room not found", http.StatusNotFound)
 		return
@@ -229,6 +229,32 @@ func (s *Server) handleGamePage(w http.ResponseWriter, r *http.Request) {
     <p>Initializing game...</p>
   </div>
   <script src="/loader.js?room=` + roomID + `&game=` + gameID + `"></script>
+  <script type="module">
+    (async () => {
+      try {
+        const ioquake3Factory = (await import('/game/` + gameID + `/` + game.Game.JSLoader + `')).default;
+        console.log('Game factory imported, initializing...');
+
+        const gameModule = await ioquake3Factory({
+          canvas: document.getElementById('game-canvas'),
+          locateFile: (file) => {
+            // Map WASM binary name to what we have
+            if (file.endsWith('.wasm')) {
+              return '/game/` + gameID + `/` + game.Game.WASM + `';
+            }
+            return '/game/` + gameID + `/' + file;
+          }
+        });
+
+        console.log('Game module initialized:', gameModule);
+        window.gameModule = gameModule;
+      } catch (err) {
+        console.error('Failed to initialize game:', err);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('hud-status').textContent = 'Failed to load';
+      }
+    })();
+  </script>
 </body>
 </html>`))
 }
@@ -349,6 +375,27 @@ func (s *Server) handleRoom(w http.ResponseWriter, r *http.Request) {
 		"network_model": room.NetworkModel,
 		"player_count": len(room.Peers()),
 	})
+}
+
+func (s *Server) handleGameFile(w http.ResponseWriter, r *http.Request) {
+	gameID := r.PathValue("gameID")
+	file := r.PathValue("file")
+
+	// Prevent directory traversal
+	if strings.Contains(file, "..") || strings.HasPrefix(file, "/") {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	// Verify game exists
+	game := s.registry.Get(gameID)
+	if game == nil {
+		http.Error(w, "Game not found", http.StatusNotFound)
+		return
+	}
+
+	filePath := filepath.Join(s.gamesDir, gameID, file)
+	http.ServeFile(w, r, filePath)
 }
 
 func listLANAddresses() []string {
