@@ -365,6 +365,64 @@ func (s *Server) handleGamePage(w http.ResponseWriter, r *http.Request) {
         log('Engine ready!');
         window.gameModule = gameModule;
 
+        // Wire up input to the canvas
+        const gameCanvas = canvas;
+        gameCanvas.focus();
+
+        // Keyboard input
+        document.addEventListener('keydown', (e) => {
+          // SDL key code mapping (simplified)
+          const keyMap = {
+            'w': 'KeyW', 'a': 'KeyA', 's': 'KeyS', 'd': 'KeyD',
+            'ArrowUp': 'ArrowUp', 'ArrowDown': 'ArrowDown',
+            'ArrowLeft': 'ArrowLeft', 'ArrowRight': 'ArrowRight',
+            ' ': 'Space'
+          };
+
+          // Prevent default browser behavior for game keys
+          if (['w','a','s','d',' '].includes(e.key.toLowerCase())) {
+            e.preventDefault();
+          }
+
+          // Try to call engine input function if available
+          if (gameModule._input_key_event) {
+            gameModule._input_key_event(e.keyCode, 1);
+          }
+        });
+
+        document.addEventListener('keyup', (e) => {
+          if (gameModule._input_key_event) {
+            gameModule._input_key_event(e.keyCode, 0);
+          }
+        });
+
+        // Mouse input
+        let mouseX = 0, mouseY = 0;
+        gameCanvas.addEventListener('mousemove', (e) => {
+          const rect = gameCanvas.getBoundingClientRect();
+          const newX = e.clientX - rect.left;
+          const newY = e.clientY - rect.top;
+
+          if (gameModule._input_mouse_event) {
+            gameModule._input_mouse_event(newX, newY, e.buttons);
+          }
+        });
+
+        gameCanvas.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          gameCanvas.focus();
+        });
+
+        gameCanvas.addEventListener('click', () => {
+          gameCanvas.focus();
+          // Try to lock pointer for FPS-style controls
+          if (gameCanvas.requestPointerLock) {
+            gameCanvas.requestPointerLock();
+          }
+        });
+
+        log('Input handlers attached');
+
         // Start a render loop
         let frameCount = 0;
         function renderFrame() {
