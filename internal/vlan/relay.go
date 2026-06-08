@@ -10,7 +10,7 @@ import (
 )
 
 type Relay struct {
-	mu    sync.RWMutex
+	Mu    sync.RWMutex
 	rooms map[string]*Room
 }
 
@@ -29,9 +29,9 @@ func (r *Relay) ServeRoom(ws *websocket.Conn) {
 		return
 	}
 
-	r.mu.RLock()
+	r.Mu.RLock()
 	room := r.rooms[roomID]
-	r.mu.RUnlock()
+	r.Mu.RUnlock()
 
 	if room == nil {
 		ws.Close()
@@ -51,8 +51,8 @@ func (r *Relay) ServeRoom(ws *websocket.Conn) {
 }
 
 func (r *Relay) CreateRoom(roomID, gameID, networkModel string, maxPlayers int) (*Room, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.Mu.Lock()
+	defer r.Mu.Unlock()
 
 	if _, exists := r.rooms[roomID]; exists {
 		return nil, fmt.Errorf("room already exists")
@@ -61,6 +61,13 @@ func (r *Relay) CreateRoom(roomID, gameID, networkModel string, maxPlayers int) 
 	room := NewRoom(roomID, gameID, networkModel, maxPlayers)
 	r.rooms[roomID] = room
 	return room, nil
+}
+
+func (r *Relay) GetRoom(roomID string) *Room {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+
+	return r.rooms[roomID]
 }
 
 func (r *Relay) handlePeer(room *Room, peer *Peer) {
@@ -102,9 +109,9 @@ func (r *Relay) handlePeer(room *Room, peer *Peer) {
 	r.broadcastPeerLeft(room, peer.ID)
 
 	if room.IsClosed() {
-		r.mu.Lock()
+		r.Mu.Lock()
 		delete(r.rooms, room.ID)
-		r.mu.Unlock()
+		r.Mu.Unlock()
 	}
 
 	slog.Info("Peer left", "room", room.ID, "peer", peer.ID)

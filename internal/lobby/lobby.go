@@ -20,7 +20,7 @@ type Room struct {
 }
 
 type Lobby struct {
-	mu      sync.RWMutex
+	RWMutex sync.RWMutex
 	rooms   map[string]*Room
 	clients map[string]*Client
 	roomSeq int
@@ -34,8 +34,8 @@ func New() *Lobby {
 }
 
 func (l *Lobby) AddClient(clientID, nickname string) (*Client, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.RWMutex.Lock()
+	defer l.RWMutex.Unlock()
 
 	if _, exists := l.clients[clientID]; exists {
 		return nil, fmt.Errorf("client already exists")
@@ -51,8 +51,8 @@ func (l *Lobby) AddClient(clientID, nickname string) (*Client, error) {
 }
 
 func (l *Lobby) RemoveClient(clientID string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.RWMutex.Lock()
+	defer l.RWMutex.Unlock()
 
 	client, exists := l.clients[clientID]
 	if !exists {
@@ -72,8 +72,8 @@ func (l *Lobby) RemoveClient(clientID string) {
 }
 
 func (l *Lobby) CreateRoom(gameID, hostID string, maxPlayers int) (*Room, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.RWMutex.Lock()
+	defer l.RWMutex.Unlock()
 
 	host, exists := l.clients[hostID]
 	if !exists {
@@ -103,8 +103,8 @@ func (l *Lobby) CreateRoom(gameID, hostID string, maxPlayers int) (*Room, error)
 }
 
 func (l *Lobby) JoinRoom(clientID, roomID string) (*Room, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.RWMutex.Lock()
+	defer l.RWMutex.Unlock()
 
 	client, exists := l.clients[clientID]
 	if !exists {
@@ -131,8 +131,8 @@ func (l *Lobby) JoinRoom(clientID, roomID string) (*Room, error) {
 }
 
 func (l *Lobby) LeaveRoom(clientID string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.RWMutex.Lock()
+	defer l.RWMutex.Unlock()
 
 	client, exists := l.clients[clientID]
 	if !exists || client.RoomID == "" {
@@ -151,8 +151,8 @@ func (l *Lobby) LeaveRoom(clientID string) {
 }
 
 func (l *Lobby) ListRooms() []*Room {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	l.RWMutex.RLock()
+	defer l.RWMutex.RUnlock()
 
 	var result []*Room
 	for _, room := range l.rooms {
@@ -163,15 +163,15 @@ func (l *Lobby) ListRooms() []*Room {
 }
 
 func (l *Lobby) GetRoom(roomID string) *Room {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	l.RWMutex.RLock()
+	defer l.RWMutex.RUnlock()
 
 	return l.rooms[roomID]
 }
 
 func (l *Lobby) GetClient(clientID string) *Client {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	l.RWMutex.RLock()
+	defer l.RWMutex.RUnlock()
 
 	return l.clients[clientID]
 }
