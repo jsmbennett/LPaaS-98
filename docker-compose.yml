@@ -1,0 +1,37 @@
+# LPaaS 98 — example docker-compose.yml
+#
+# For hosts who prefer running the server as a container.
+# Drop this in a directory, run `docker compose up -d`, and the server
+# is reachable at http://<your-lan-ip>:9898.
+#
+# The ./games and ./assets directories on the host are mounted into the
+# container so installed games and host-supplied assets persist across
+# container restarts and image upgrades.
+
+services:
+  lpaas98:
+    image: ghcr.io/<owner>/lpaas-98:latest
+    container_name: lpaas98
+    restart: unless-stopped
+
+    # Use host networking so the server sees real LAN addresses to log on
+    # startup, and so guests connect directly to the host's IP. Without this,
+    # the server would only see the container's bridge address and the
+    # "tell your friends to open this URL" message would be wrong.
+    #
+    # On macOS and Windows, host networking is partial — fall back to the
+    # explicit port mapping below.
+    network_mode: host
+
+    # Fallback for platforms where host networking doesn't work cleanly.
+    # Comment out `network_mode: host` above and uncomment this block.
+    # ports:
+    #   - "9898:9898"
+
+    volumes:
+      - ./games:/app/games
+      - ./assets:/app/assets
+
+    # Optional: pin to a specific catalog (e.g. your own fork).
+    # environment:
+    #   LPAAS_CATALOG_URL: https://raw.githubusercontent.com/<you>/<fork>/main/catalog.json
