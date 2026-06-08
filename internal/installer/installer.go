@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/joeyb/lpaas-98/internal/catalog"
 )
@@ -142,5 +143,5 @@ func isPathSafe(path, baseDir string) bool {
 	if err != nil {
 		return false
 	}
-	return !filepath.IsAbs(rel) && rel != ".." && len(rel) > 0 && rel[0] != '.'
+	return !filepath.IsAbs(rel) && !strings.HasPrefix(rel, "..")
 }
