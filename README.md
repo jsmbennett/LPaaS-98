@@ -6,21 +6,13 @@ A self-hosted server for running vintage LAN parties through the web browser. Dr
 
 > Enterprise-grade infrastructure for non-enterprise activities.
 
-## Launch Lineup
+## Launch Game
 
-v1 ships with three games, each demonstrating a different architectural pattern:
+v1 launches with **OpenArena**, a free Quake III-style arena shooter:
 
-- **OpenArena** (ioquake3 engine, GPL) — a free Quake III-style arena shooter. **No assets required.** Pure WASM-in-browser; one command, instant deathmatch.
-- **Zandronum** (Doom client/server port, GPL) — modern multiplayer Doom with RUDP networking, join-in-progress, and proper deathmatch/CTF/Survival modes. Bring your own `doom.wad`, or install **Freedoom** (free BSD-licensed game compatible with the Doom engine). Runs as a native server subprocess with a WASM client; LPaaS 98 acts as the UDP proxy. Inspired by [dorch / gib.gg](https://github.com/beebs-dev/dorch).
-- **Quakespasm** (Quake engine, GPL) — bring your own `pak0.pak`, or install **LibreQuake** (free CC-BY-SA assets compatible with the Quake engine). Pure WASM-in-browser.
+- **OpenArena** (ioquake3 engine, GPL) — **No assets required.** Pure WASM-in-browser; one command, instant deathmatch.
 
-The lineup is designed to exercise the architecture:
-
-- **OpenArena** = self-contained, pure-WASM, no assets, host-client networking
-- **Zandronum** = subprocess server + WASM client + UDP proxy, host-supplied or free-bundle assets
-- **Quakespasm** = engine-only pure-WASM, host-supplied or free-bundle assets, host-client networking
-
-If everything works for these three, the system generalizes cleanly to almost any vintage open-source-engine game.
+The initial implementation focuses on this single game to validate the WASM-to-vLAN-relay architecture end-to-end before expanding to additional titles.
 
 ## Status
 
@@ -53,8 +45,8 @@ LPaaS 98 listening on:
 Tell your friends to open that in their browser.
 ```
 
-That's it. The other two games take an extra step — either drop your own WAD/PAK into the assets directory, or run `lpaas98 install-free-assets zandronum` (or `quakespasm`) to grab the free alternatives.
+That's it. OpenArena ships with everything included — no additional assets needed.
 
 ## License
 
-Apache-2.0 for the server. Game engine builds in the catalog retain their own licenses (mostly GPL). Free assets retain theirs (Freedoom: BSD-3-Clause; LibreQuake: CC-BY-SA-4.0). OpenArena ships under GPL with its own assets included.
+Apache-2.0 for the server. OpenArena and ioquake3 are GPL-licensed.

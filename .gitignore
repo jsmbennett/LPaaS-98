@@ -1,0 +1,27 @@
+# Binaries
+lpaas98
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+go.sum
+dist/
+bin/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+games/
+assets/
+catalog.cache.json
