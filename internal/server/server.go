@@ -132,6 +132,12 @@ func (s *Server) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Also create room in relay for WebSocket connections
+	if _, err := s.relay.CreateRoom(room.ID, game.Game.ID, game.Game.NetworkModel, game.Game.MaxPlayers); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"room_id": room.ID,
