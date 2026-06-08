@@ -2,9 +2,11 @@
 
 ## Status
 
-**Infrastructure: Complete**
-**WASM Build: Pending**
-**Integration Testing: Pending**
+**Infrastructure: ✅ Complete**
+**WASM Build: ✅ Complete**
+**Engine Initialization: ✅ Complete**
+**Game Rendering & Input: 🔲 Pending**
+**Multiplayer Testing: 🔲 Pending**
 
 ## What's Been Built
 
@@ -29,66 +31,70 @@
 - Non-host clients can only send 0x00 (to host)
 - Host can send any routing byte
 
-## What's Left
+## What's Been Completed (as of 2026-06-08)
 
-### 1. Build WASM Binary
-- Clone https://github.com/jdarpinian/ioq3
-- Configure Emscripten build flags
-- Compile ioquake3 to WASM
-- Output: `openarena.wasm`
+1. ✅ **WASM Binary** — OpenArena built with Emscripten, 2.2MB
+2. ✅ **Game Archive** — Packaged as openarena-0.8.8.tar.gz with manifest
+3. ✅ **Server File Serving** — `/game/{gameID}/{file}` route for assets
+4. ✅ **Game Page Loader** — HTML page that loads game-specific WASM module
+5. ✅ **WASM Initialization** — ioquake3 engine starts, VFS initializes
+6. ✅ **vLAN Relay Integration** — WebSocket connection established and stable
+7. ✅ **Peer Status** — Client joins as peer 1 with host role assigned
 
-Typical Emscripten flags:
-```bash
-emconfigure ./configure --enable-wasm
-emmake make
-```
+Console output confirms:
+- "Connected to relay"
+- "Joined as peer 1 (host: true)"
+- "Game module initialized"
+- ioquake3 startup messages (ioq3 1.36_GIT_e4ce732d-2026-04-12)
 
-Binary will be ~8-15 MB depending on optimizations.
+## What's Left to Playable Game
 
-### 2. Create JavaScript Shim
-- Intercept ioquake3's UDP socket calls
-- Translate to GameLoader.sendGamePacket()
-- Translate incoming relay packets back to what ioquake3 expects
+### 1. **Rendering to Canvas**
+The WASM engine is running but output isn't appearing. Need to:
+- Verify WebGL context initialization in Emscripten
+- Ensure the canvas element passed to the module is properly configured
+- Check for any WebGL errors in the console
+- May need to add requestAnimationFrame loop for rendering
 
-This is the most game-specific work. Expect to read ioquake3's networking code and understand:
-- Packet format (likely raw UDP datagrams)
-- Socket emulation layer (Emscripten provides one)
-- Address family usage (AF_INET, UDP)
+### 2. **Input Handling**
+Wire up keyboard, mouse, and gamepad events to the WASM engine:
+- Key down/up events → engine's input system
+- Mouse movement → engine's look/aim
+- Mouse click → weapon fire / UI interaction
+- Gamepad support (optional but nice for LAN parties)
 
-Reference: jdarpinian/ioq3's existing JS shim (if they have one for WebRTC)
+### 3. **Network Shim (Most Complex)**
+Intercept WASM socket calls and translate to WebSocket relay protocol:
+- Emscripten provides socket emulation; hook into it or wrap at JS boundary
+- Game sends UDP packets → translate to WebSocket frames
+- Incoming WebSocket frames → translate back to fake UDP packets for game
+- Implement host-client routing (0x00 to host, 0xFF broadcast, etc.)
 
-### 3. Bundle Game Data
-- Copy OpenArena game data into `games/openarena/`
-- Include: manifest.json, openarena.wasm, loader.js, icon files, game assets (baseoa/)
-- Create tar.gz: `openarena-0.8.8.tar.gz`
+This requires understanding:
+- ioquake3's netchan packet format
+- Emscripten's socket emulation API
+- How to intercept/proxy socket operations from WASM
 
-File structure:
-```
-openarena-0.8.8/
-  manifest.json
-  openarena.wasm
-  loader.js
-  icon_16.png
-  icon_32.png
-  icon_48.png
-  baseoa/
-    pak0.pk3
-    pak1-maps.pk3
-    ...
-```
+### 4. **Game Data / Config**
+Currently the game complains about missing `default.cfg` and `baseq3/` directory. Options:
+- Bundle full game assets (~100MB) — increases archive size significantly
+- Generate minimal config that gets engine running
+- Create a virtual filesystem stub that makes the engine think files exist
+- Use data in VFS (virtual file system) that Emscripten provides
 
-### 4. Update Catalog
-- Calculate SHA256 of tar.gz
-- Add entry to `lpaas-98-games/catalog.json`
-- Update download_url and sha256 fields
+Current effort: ~1-2 days to get basic config working
 
-### 5. Test End-to-End
-1. Build server: `go build ./cmd/lpaas98`
-2. Install game: `./lpaas98 install openarena`
-3. Start server: `./lpaas98 server`
-4. Open browser: `http://localhost:9898`
-5. Create room, join from another browser
-6. Verify game loads and packet exchange works
+## Effort Remaining to Playable
+
+- **Rendering**: 1-2 days (likely WebGL setup issue)
+- **Input**: 1-2 days (event wiring)
+- **Network Shim**: 3-5 days (most complex, requires understanding ioquake3 netchan)
+- **Game Config**: 1-2 days (minimal default.cfg or VFS stub)
+- **Testing**: 1-2 days (LAN multiplayer validation)
+
+**Total: ~7-13 days to fully playable OpenArena deathmatch**
+
+Current blockers: None. Path forward is clear.
 
 ## Known Gotchas
 

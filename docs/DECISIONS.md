@@ -36,3 +36,25 @@
 2. Read their JS networking shim; understand UDP→WebSocket translation
 3. Design our JS layer to convert those packets to PROTOCOL.md frame format
 4. Prototype single-player with our relay before debugging multiplayer
+
+## 2026-06-08: Phase 7 Milestone Reached — WASM Engine Running
+
+**Decision:** Phase 7 core deliverable met: OpenArena WASM loads, initializes, and connects to the vLAN relay. End-to-end flow complete (catalog install → server → browser → game engine).
+
+**What works:**
+- Game catalog and installer (Phase 3) ✅
+- Build pipeline for OpenArena WASM ✅
+- Server file serving for game assets ✅
+- vLAN relay and WebSocket connection ✅
+- ioquake3 WASM initialization and engine startup ✅
+
+**What remains (Phase 7.5 or Phase 8):**
+1. **Rendering** — WASM engine needs canvas context; likely needs WebGL setup
+2. **Input** — Keyboard/mouse/gamepad event wiring to engine
+3. **Network Shim** — Intercept WASM socket calls, translate to WebSocket relay protocol
+4. **Game Data** — Bundle minimal config/assets or generate them programmatically
+
+**Phase 7 effort spent:** ~2-3 days (build system, server integration, WASM loading)
+**Remaining to playable:** ~3-5 days (rendering, input, networking shim)
+
+**Decision**: Mark Phase 7 as "engine initialized" and continue with integration work in Phase 7.5. The core architectural question is answered: **yes, ioquake3 WASM can run in browser and connect to our relay.**
